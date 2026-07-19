@@ -1,0 +1,515 @@
+import React, { useState, useEffect, useRef } from "react";
+import { Bell, Heart, ShoppingBag, X, ChevronRight, Play, MessageCircle, Check, ArrowLeft, Minus, Plus, Trash2 } from "lucide-react";
+
+/* ────────────────────────────────────────────────────────────
+   NOVAMOON — 5인조 걸그룹 팬 커뮤니티 사이트 (v2)
+   화이트 모드 고정 / Pretendard / HOME · TALK · CONTENTS · NOTICE · SHOP
+──────────────────────────────────────────────────────────── */
+
+const MEMBERS = {
+  yuna: { name: "유나", color: "#8A7CFF", emoji: "🌒" },
+  riko: { name: "리코", color: "#28B88A", emoji: "🌓" },
+  haeun: { name: "하은", color: "#E8992A", emoji: "🌕" },
+  seol: { name: "설", color: "#E85D8A", emoji: "🌗" },
+  mira: { name: "미라", color: "#3D7FE0", emoji: "🌘" },
+};
+
+const NOTICES = [
+  { id: 1, type: "공지", title: "정규 2집 [PHASE : FULL] 발매 안내", time: "10분 전", unread: true },
+  { id: 2, type: "스케줄", title: "8/2(일) 음악방송 사전녹화 스케줄 공개", time: "1시간 전", unread: true },
+  { id: 3, type: "방송", title: '"노바문의 달빛여행" 6화 공개', time: "3시간 전", unread: false },
+  { id: 4, type: "공지", title: "팬사인회 응모 안내 (~8/10)", time: "어제", unread: false },
+  { id: 5, type: "굿즈", title: "포토카드 랜덤박스 재입고", time: "2일 전", unread: false },
+];
+
+const TALK = [
+  { id: 1, member: "haeun", text: "오늘 리허설 완료! 다들 스밍 준비됐지", time: "방금", hearts: 1042, isLive: true },
+  { id: 2, member: "yuna", text: "새 앨범 자켓 촬영 비하인드 곧 풀게요~", time: "22분 전", hearts: 873, isLive: false },
+  { id: 3, member: "mira", text: "오늘 하늘에 진짜 그믐달 떴어요 보러 나가세요", time: "1시간 전", hearts: 2310, isLive: false },
+  { id: 4, member: "seol", text: "연습실 간식 누가 다 먹었어ㅠㅠ", time: "2시간 전", hearts: 654, isLive: false },
+];
+
+const CONTENTS = [
+  { id: 1, title: "달빛여행 EP.6", type: "예능", isNew: true, time: "3시간 전" },
+  { id: 2, title: "타이틀곡 티저", type: "티저", isNew: true, time: "5시간 전" },
+  { id: 3, title: "무대 비하인드", type: "비하인드", isNew: false, time: "어제" },
+  { id: 4, title: "V LIVE 다시보기", type: "라이브", isNew: false, time: "2일 전" },
+  { id: 5, title: "자켓 촬영 스케치", type: "비하인드", isNew: false, time: "3일 전" },
+  { id: 6, title: "댄스 프랙티스 - 타이틀곡", type: "퍼포먼스", isNew: false, time: "4일 전" },
+];
+
+const PRODUCTS = [
+  { id: 1, name: "PHASE : FULL 정규 2집", price: 24000, tag: "예약판매" },
+  { id: 2, name: "위상 포토카드 세트 (5종)", price: 15000, tag: "품절임박" },
+  { id: 3, name: "달빛 라이트스틱 ver.2", price: 42000, tag: "인기" },
+  { id: 4, name: "멤버 슬로건 - 하은", price: 18000, tag: null },
+];
+
+const TABS = [
+  { id: "home", label: "HOME" },
+  { id: "talk", label: "TALK" },
+  { id: "contents", label: "CONTENTS" },
+  { id: "notice", label: "NOTICE" },
+  { id: "shop", label: "SHOP" },
+];
+
+export default function NovamoonFansite() {
+  const [tab, setTab] = useState("home");
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(NOTICES.filter((n) => n.unread).length);
+  const [toast, setToast] = useState(null);
+  const [cart, setCart] = useState({});
+  const [likedTalk, setLikedTalk] = useState({});
+  const toastTimer = useRef(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setToast({ title: "하은", text: "새 라이브를 시작했어요" });
+      setUnreadCount((c) => c + 1);
+    }, 4500);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (toast) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = setTimeout(() => setToast(null), 4500);
+    }
+    return () => clearTimeout(toastTimer.current);
+  }, [toast]);
+
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const cartTotal = Object.entries(cart).reduce((sum, [id, qty]) => {
+    const p = PRODUCTS.find((pp) => pp.id === Number(id));
+    return sum + (p ? p.price * qty : 0);
+  }, 0);
+
+  const addToCart = (id) => {
+    setCart((c) => ({ ...c, [id]: (c[id] || 0) + 1 }));
+    setToast({ title: "장바구니", text: "상품을 담았어요" });
+  };
+  const changeQty = (id, delta) => {
+    setCart((c) => {
+      const next = { ...c };
+      const q = (next[id] || 0) + delta;
+      if (q <= 0) delete next[id];
+      else next[id] = q;
+      return next;
+    });
+  };
+  const toggleLike = (id) => setLikedTalk((l) => ({ ...l, [id]: !l[id] }));
+
+  return (
+    <div style={S.app}>
+      <style>{`
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css');
+        * { box-sizing: border-box; margin:0; padding:0; font-family: 'Pretendard', -apple-system, sans-serif; }
+        button { cursor:pointer; border:none; background:none; font-family:inherit; }
+        ::-webkit-scrollbar { width: 0px; }
+        .fade-in { animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from { opacity:0; transform: translateY(5px);} to {opacity:1; transform: translateY(0);} }
+        @keyframes slideUp { from { opacity:0; transform: translateY(16px);} to {opacity:1; transform: translateY(0);} }
+        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.4 } }
+      `}</style>
+
+      {/* ── 헤더 ── */}
+      <header style={S.header}>
+        <div style={S.headerInner}>
+          <div style={S.logo}>novamoon</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <button style={S.iconBtn} onClick={() => setCartOpen(true)}>
+              <ShoppingBag size={20} strokeWidth={1.6} color="#1A1A1A" />
+              {cartCount > 0 && <span style={S.dotBadge}>{cartCount}</span>}
+            </button>
+            <button style={S.iconBtn} onClick={() => setNotifOpen((v) => !v)}>
+              <Bell size={20} strokeWidth={1.6} color="#1A1A1A" />
+              {unreadCount > 0 && <span style={S.dotBadge}>{unreadCount}</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* 탭 내비게이션 - 밑줄만 있는 캐주얼한 형태 */}
+        <div style={S.tabNav}>
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)} style={S.tabBtn}>
+                <span style={{ ...S.tabLabel, color: active ? "#1A1A1A" : "#B8B8B8", fontWeight: active ? 700 : 500 }}>
+                  {t.label}
+                </span>
+                {active && <span style={S.tabUnderline} />}
+              </button>
+            );
+          })}
+        </div>
+      </header>
+
+      {notifOpen && (
+        <div style={S.notifPanel} className="fade-in">
+          <div style={S.notifHeader}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#1A1A1A" }}>알림</span>
+            <button onClick={() => setNotifOpen(false)}><X size={16} color="#999" /></button>
+          </div>
+          {NOTICES.slice(0, 4).map((n) => (
+            <div key={n.id} style={S.notifRow}>
+              {n.unread ? <div style={S.notifUnreadDot} /> : <div style={{ width: 6, marginRight: 6 }} />}
+              <div>
+                <div style={{ fontSize: 11, color: "#999", fontWeight: 700 }}>{n.type}</div>
+                <div style={{ fontSize: 13, color: "#1A1A1A", marginTop: 2 }}>{n.title}</div>
+                <div style={{ fontSize: 11, color: "#B8B8B8", marginTop: 2 }}>{n.time}</div>
+              </div>
+            </div>
+          ))}
+          <button style={S.notifAll} onClick={() => { setTab("notice"); setNotifOpen(false); }}>
+            전체 공지 보기 <ChevronRight size={13} />
+          </button>
+        </div>
+      )}
+
+      {toast && (
+        <div style={S.toast} className="fade-in" onClick={() => { setTab("talk"); setToast(null); }}>
+          <div style={S.toastDot} />
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "#1A1A1A" }}>{toast.title}</div>
+            <div style={{ fontSize: 12, color: "#777" }}>{toast.text}</div>
+          </div>
+        </div>
+      )}
+
+      <main style={S.main}>
+        {tab === "home" && <HomeTab setTab={setTab} likedTalk={likedTalk} toggleLike={toggleLike} />}
+        {tab === "talk" && <TalkTab likedTalk={likedTalk} toggleLike={toggleLike} />}
+        {tab === "contents" && <ContentsTab />}
+        {tab === "notice" && <NoticeTab />}
+        {tab === "shop" && <ShopTab cart={cart} addToCart={addToCart} />}
+      </main>
+
+      <footer style={S.footer}>NOVAMOON OFFICIAL FANSITE · ⓒ MOONRISE ENT.</footer>
+
+      {cartOpen && (
+        <CartSheet
+          cart={cart}
+          changeQty={changeQty}
+          total={cartTotal}
+          onClose={() => setCartOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── 홈 : 최신 컨텐츠 위주 피드 ───────────────────────── */
+function HomeTab({ setTab, likedTalk, toggleLike }) {
+  return (
+    <div className="fade-in">
+      <section style={S.hero}>
+        <div style={{ fontSize: 11, letterSpacing: 1, color: "#999", fontWeight: 700 }}>NEW ALBUM · D-6</div>
+        <div style={S.heroTitle}>PHASE : FULL</div>
+        <p style={{ fontSize: 13, color: "#666", marginTop: 6, lineHeight: 1.6 }}>
+          다섯 개의 위상이 하나로 차오르는 순간. 정규 2집, 8월 2일 자정 공개.
+        </p>
+        <button style={S.heroBtn} onClick={() => setTab("shop")}>
+          예약구매 하기 <ChevronRight size={14} />
+        </button>
+      </section>
+
+      <RowHeader text="최근 올라온 콘텐츠" onMore={() => setTab("contents")} />
+      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+        {CONTENTS.slice(0, 4).map((c) => (
+          <div key={c.id} style={S.contentCardSm}>
+            <div style={S.contentThumbSm}>
+              <Play size={16} color="#fff" fill="#fff" />
+              {c.isNew && <span style={S.newBadge}>NEW</span>}
+            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#1A1A1A", marginTop: 8 }}>{c.title}</div>
+            <div style={{ fontSize: 10.5, color: "#B8B8B8", marginTop: 2 }}>{c.type} · {c.time}</div>
+          </div>
+        ))}
+      </div>
+
+      <RowHeader text="최근 TALK" onMore={() => setTab("talk")} style={{ marginTop: 30 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {TALK.slice(0, 2).map((f) => (
+          <TalkCard key={f.id} f={f} liked={likedTalk[f.id]} onLike={() => toggleLike(f.id)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RowHeader({ text, onMore, style }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, ...style }}>
+      <span style={S.rowHeaderText}>{text}</span>
+      {onMore && (
+        <button onClick={onMore} style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 12, color: "#999", fontWeight: 500 }}>
+          더보기 <ChevronRight size={13} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────────── TALK ───────────────────────── */
+function TalkTab({ likedTalk, toggleLike }) {
+  return (
+    <div className="fade-in">
+      <RowHeader text="멤버와의 TALK" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {TALK.map((f) => (
+          <TalkCard key={f.id} f={f} liked={likedTalk[f.id]} onLike={() => toggleLike(f.id)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TalkCard({ f, liked, onLike }) {
+  const m = MEMBERS[f.member];
+  return (
+    <div style={S.talkCard}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ ...S.talkAvatar, background: `${m.color}18` }}>{m.emoji}</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#1A1A1A" }}>{m.name}</span>
+            {f.isLive && (
+              <span style={S.liveBadge}>
+                <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: 99, background: "#E8492A", marginRight: 4, animation: "pulse 1.4s infinite" }} />
+                LIVE
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: "#B8B8B8" }}>{f.time}</div>
+        </div>
+      </div>
+      <p style={{ fontSize: 13.5, color: "#333", marginTop: 10, lineHeight: 1.6 }}>{f.text}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
+        <button onClick={onLike} style={S.rowBtn}>
+          <Heart size={15} color={liked ? "#E85D8A" : "#B8B8B8"} fill={liked ? "#E85D8A" : "none"} strokeWidth={1.6} />
+          <span style={{ fontSize: 12, color: liked ? "#E85D8A" : "#999" }}>{f.hearts + (liked ? 1 : 0)}</span>
+        </button>
+        <button style={S.rowBtn}>
+          <MessageCircle size={14} color="#B8B8B8" strokeWidth={1.6} />
+          <span style={{ fontSize: 12, color: "#999" }}>응원 보내기</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── CONTENTS : 모아보기 ───────────────────────── */
+function ContentsTab() {
+  const [filter, setFilter] = useState("전체");
+  const cats = ["전체", "예능", "티저", "비하인드", "라이브", "퍼포먼스"];
+  const filtered = filter === "전체" ? CONTENTS : CONTENTS.filter((c) => c.type === filter);
+
+  return (
+    <div className="fade-in">
+      <RowHeader text="콘텐츠 모아보기" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
+        {cats.map((c) => (
+          <button key={c} onClick={() => setFilter(c)} style={{ ...S.filterChip, ...(filter === c ? S.filterChipActive : {}) }}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {filtered.map((c) => (
+          <div key={c.id}>
+            <div style={S.contentThumbLg}>
+              <Play size={20} color="#fff" fill="#fff" />
+              {c.isNew && <span style={S.newBadge}>NEW</span>}
+            </div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "#1A1A1A", marginTop: 8 }}>{c.title}</div>
+            <div style={{ fontSize: 11, color: "#B8B8B8", marginTop: 2 }}>{c.type} · {c.time}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── NOTICE ───────────────────────── */
+function NoticeTab() {
+  const [filter, setFilter] = useState("전체");
+  const cats = ["전체", "공지", "스케줄", "방송", "굿즈"];
+  const filtered = filter === "전체" ? NOTICES : NOTICES.filter((n) => n.type === filter);
+
+  return (
+    <div className="fade-in">
+      <RowHeader text="NOTICE" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto" }}>
+        {cats.map((c) => (
+          <button key={c} onClick={() => setFilter(c)} style={{ ...S.filterChip, ...(filter === c ? S.filterChipActive : {}) }}>
+            {c}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {filtered.map((n) => (
+          <div key={n.id} style={S.noticeRow}>
+            <div style={{ ...S.noticeTag, ...tagStyle(n.type) }}>{n.type}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13.5, color: "#1A1A1A", fontWeight: n.unread ? 700 : 500 }}>{n.title}</div>
+              <div style={{ fontSize: 11.5, color: "#B8B8B8", marginTop: 3 }}>{n.time}</div>
+            </div>
+            {n.unread && <div style={S.smallDot} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function tagStyle(type) {
+  const map = {
+    공지: { background: "#8A7CFF14", color: "#8A7CFF" },
+    스케줄: { background: "#28B88A14", color: "#28B88A" },
+    방송: { background: "#E8992A14", color: "#E8992A" },
+    굿즈: { background: "#E85D8A14", color: "#E85D8A" },
+  };
+  return map[type] || {};
+}
+
+/* ───────────────────────── SHOP ───────────────────────── */
+function ShopTab({ cart, addToCart }) {
+  return (
+    <div className="fade-in">
+      <RowHeader text="SHOP" />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        {PRODUCTS.map((p) => (
+          <div key={p.id}>
+            <div style={S.productThumb}>{p.tag && <span style={S.productTag}>{p.tag}</span>}</div>
+            <div style={{ fontSize: 12.5, color: "#1A1A1A", fontWeight: 600, marginTop: 10, lineHeight: 1.4 }}>{p.name}</div>
+            <div style={{ fontSize: 13, color: "#1A1A1A", fontWeight: 700, marginTop: 4 }}>{p.price.toLocaleString()}원</div>
+            <button style={S.addBtn} onClick={() => addToCart(p.id)}>
+              {cart[p.id] ? <><Check size={13} /> 담음 {cart[p.id]}</> : "장바구니 담기"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── 장바구니 시트 ───────────────────────── */
+function CartSheet({ cart, changeQty, total, onClose }) {
+  const items = Object.entries(cart);
+  return (
+    <div style={S.sheetOverlay} onClick={onClose}>
+      <div style={S.sheet} onClick={(e) => e.stopPropagation()} className="fade-in">
+        <div style={S.sheetHeader}>
+          <button onClick={onClose} style={{ display: "flex", alignItems: "center" }}>
+            <ArrowLeft size={19} color="#1A1A1A" />
+          </button>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A" }}>장바구니</span>
+          <div style={{ width: 19 }} />
+        </div>
+
+        {items.length === 0 ? (
+          <div style={{ padding: "50px 0", textAlign: "center", color: "#B8B8B8", fontSize: 13 }}>
+            담긴 상품이 없어요.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "16px 0" }}>
+              {items.map(([id, qty]) => {
+                const p = PRODUCTS.find((pp) => pp.id === Number(id));
+                if (!p) return null;
+                return (
+                  <div key={id} style={S.cartRow}>
+                    <div style={S.cartThumb} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "#1A1A1A", lineHeight: 1.4 }}>{p.name}</div>
+                      <div style={{ fontSize: 12.5, color: "#1A1A1A", fontWeight: 700, marginTop: 6 }}>{p.price.toLocaleString()}원</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button style={S.qtyBtn} onClick={() => changeQty(id, -1)}>
+                        {qty === 1 ? <Trash2 size={13} color="#999" /> : <Minus size={13} color="#999" />}
+                      </button>
+                      <span style={{ fontSize: 13, fontWeight: 600, minWidth: 14, textAlign: "center" }}>{qty}</span>
+                      <button style={S.qtyBtn} onClick={() => changeQty(id, 1)}>
+                        <Plus size={13} color="#999" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={S.sheetFooter}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+                <span style={{ fontSize: 13, color: "#666" }}>총 결제금액</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1A" }}>{total.toLocaleString()}원</span>
+              </div>
+              <button style={S.checkoutBtn}>주문하기</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── 스타일 ───────────────────────── */
+const S = {
+  app: { maxWidth: 420, margin: "0 auto", minHeight: "100vh", background: "#FFFFFF", position: "relative", paddingBottom: 40 },
+  header: { position: "sticky", top: 0, zIndex: 20, background: "#FFFFFFF2", backdropFilter: "blur(10px)", borderBottom: "1px solid #F0F0F0" },
+  headerInner: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 18px 14px" },
+  logo: { fontSize: 19, fontWeight: 800, color: "#1A1A1A", letterSpacing: -0.5 },
+  iconBtn: { position: "relative", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" },
+  dotBadge: { position: "absolute", top: -4, right: -6, background: "#E85D8A", color: "#fff", fontSize: 9, fontWeight: 700, borderRadius: 99, minWidth: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px" },
+
+  tabNav: { display: "flex", padding: "0 16px", gap: 18, overflowX: "auto" },
+  tabBtn: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "2px 0 12px", position: "relative" },
+  tabLabel: { fontSize: 12, letterSpacing: 0.3, whiteSpace: "nowrap" },
+  tabUnderline: { position: "absolute", bottom: 0, left: 2, right: 2, height: 2, background: "#1A1A1A", borderRadius: 2 },
+
+  notifPanel: { position: "absolute", top: 80, right: 14, width: 280, background: "#fff", border: "1px solid #EEE", borderRadius: 14, padding: 12, zIndex: 30, boxShadow: "0 12px 30px rgba(0,0,0,0.08)" },
+  notifHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid #F2F2F2" },
+  notifRow: { display: "flex", gap: 6, padding: "8px 4px" },
+  notifUnreadDot: { width: 6, height: 6, borderRadius: 99, background: "#E85D8A", marginTop: 6, marginRight: 6, flexShrink: 0 },
+  notifAll: { width: "100%", textAlign: "center", fontSize: 12, color: "#666", padding: "8px 0 2px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontWeight: 600 },
+
+  toast: { position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", zIndex: 50, display: "flex", alignItems: "center", gap: 10, background: "#fff", border: "1px solid #EEE", borderRadius: 14, padding: "10px 16px", maxWidth: 380, width: "88%", cursor: "pointer", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" },
+  toastDot: { width: 8, height: 8, borderRadius: 99, background: "#28B88A", flexShrink: 0 },
+
+  main: { padding: "20px 16px 0" },
+  rowHeaderText: { fontSize: 14, fontWeight: 700, color: "#1A1A1A" },
+
+  hero: { background: "#FAFAFA", borderRadius: 16, padding: "22px 18px", marginBottom: 28 },
+  heroTitle: { fontSize: 28, fontWeight: 800, color: "#1A1A1A", marginTop: 6, letterSpacing: -0.5 },
+  heroBtn: { marginTop: 14, background: "#1A1A1A", color: "#fff", fontSize: 12.5, fontWeight: 700, padding: "10px 16px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 4 },
+
+  contentCardSm: { minWidth: 130, flexShrink: 0 },
+  contentThumbSm: { position: "relative", width: 130, aspectRatio: "4/5", background: "#EDEDED", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" },
+  contentThumbLg: { position: "relative", aspectRatio: "4/5", background: "#EDEDED", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" },
+  newBadge: { position: "absolute", top: 8, left: 8, background: "#1A1A1A", color: "#fff", fontSize: 9.5, fontWeight: 700, padding: "2px 6px", borderRadius: 5 },
+
+  talkCard: { background: "#FAFAFA", borderRadius: 14, padding: "14px 16px" },
+  talkAvatar: { width: 36, height: 36, borderRadius: 99, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 17 },
+  liveBadge: { fontSize: 9.5, fontWeight: 700, color: "#E8492A", background: "#E8492A14", padding: "2px 6px", borderRadius: 5, display: "inline-flex", alignItems: "center" },
+  rowBtn: { display: "flex", alignItems: "center", gap: 5 },
+
+  filterChip: { fontSize: 12, fontWeight: 600, color: "#999", background: "#fff", border: "1px solid #EAEAEA", borderRadius: 20, padding: "7px 14px", whiteSpace: "nowrap" },
+  filterChipActive: { background: "#1A1A1A", color: "#fff", border: "1px solid #1A1A1A" },
+  noticeRow: { display: "flex", alignItems: "flex-start", gap: 10, padding: "14px 4px", borderBottom: "1px solid #F2F2F2" },
+  noticeTag: { fontSize: 10.5, fontWeight: 700, padding: "3px 7px", borderRadius: 6, whiteSpace: "nowrap", marginTop: 1 },
+  smallDot: { width: 6, height: 6, borderRadius: 99, background: "#E85D8A", marginTop: 6, flexShrink: 0 },
+
+  productThumb: { position: "relative", aspectRatio: "1/1", background: "#EDEDED", borderRadius: 12 },
+  productTag: { position: "absolute", top: 8, left: 8, background: "#fff", color: "#1A1A1A", fontSize: 9.5, fontWeight: 700, padding: "2px 6px", borderRadius: 5, border: "1px solid #EAEAEA" },
+  addBtn: { width: "100%", marginTop: 10, background: "#F5F5F5", color: "#1A1A1A", fontSize: 11.5, fontWeight: 700, padding: "8px 0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 },
+
+  footer: { textAlign: "center", fontSize: 10.5, color: "#CCC", padding: "36px 0 10px", letterSpacing: 0.3 },
+
+  sheetOverlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 60, display: "flex", alignItems: "flex-end", justifyContent: "center" },
+  sheet: { width: "100%", maxWidth: 420, background: "#fff", borderRadius: "20px 20px 0 0", padding: "16px 18px 24px", maxHeight: "80vh", overflowY: "auto" },
+  sheetHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #F2F2F2" },
+  cartRow: { display: "flex", alignItems: "center", gap: 12 },
+  cartThumb: { width: 52, height: 52, borderRadius: 10, background: "#EDEDED", flexShrink: 0 },
+  qtyBtn: { width: 24, height: 24, borderRadius: 99, background: "#F5F5F5", display: "flex", alignItems: "center", justifyContent: "center" },
+  sheetFooter: { borderTop: "1px solid #F2F2F2", marginTop: 4, paddingTop: 16 },
+  checkoutBtn: { width: "100%", background: "#1A1A1A", color: "#fff", fontSize: 14, fontWeight: 700, padding: "14px 0", borderRadius: 12 },
+};
